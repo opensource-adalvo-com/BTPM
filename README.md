@@ -4,6 +4,8 @@ BTPM is an execution-focused Business Transformation and Project Management plat
 
 The product combines structured planning and execution, portfolio visibility, governed collaboration, KPI tracking, risks and blockers, reporting, and integration surfaces for conventional applications and AI agents.
 
+**Note: This is a fork of the original repo. Due to a tragic incident, access was lost to the original repo.**
+
 ## What BTPM covers
 
 BTPM models delivery around a structured hierarchy:
