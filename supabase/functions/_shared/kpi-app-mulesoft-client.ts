@@ -15,6 +15,7 @@
 //     the full decrypted upstream body.
 //   - Never mutate inputs.
 
+import { checkOutboundUrl } from "./outboundRequestGuard.ts";
 
 export type ConnectorOutcome = "success" | "http_error" | "transport_error";
 
@@ -161,13 +162,27 @@ export async function submitKpiAppPayload(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const upstream = await fetch(apiUrl, {
+    // `apiUrl` originates from the Tenant Admin-controlled `api_url` secret.
+    // The Tenant resolver already vets it (`validateApiUrl`), but this POST
+    // carries both the payload and Basic credentials, so the check is repeated
+    // at the point of use rather than inherited from a caller's invariant.
+    // A rejection surfaces through the catch below as `transport_error`.
+    const urlCheck = checkOutboundUrl(apiUrl);
+    if (!urlCheck.ok) {
+      throw new Error(`Outbound URL is not permitted (${urlCheck.reason}).`);
+    }
+
+    // `redirect: "manual"` is what makes the check above hold: a permitted
+    // public host answering 302 would otherwise re-aim this request — payload
+    // and credentials included — at an internal address.
+    const upstream = await fetch(urlCheck.url.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": buildBasicAuthHeader(apiUsername, apiPassword),
       },
       body: JSON.stringify(payload),
+      redirect: "manual",
       signal: controller.signal,
     });
 

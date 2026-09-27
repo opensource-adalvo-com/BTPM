@@ -16,8 +16,10 @@
 // step. 4D.14A.8C.2A only establishes the transport contract.
 
 import type { TenantAiTextRuntime } from "./tenantAiTextRuntime.ts";
+import { checkOutboundUrl } from "./outboundRequestGuard.ts";
 
 export type TenantAiChatCompletionFailureCategory =
+  | "endpoint_blocked"
   | "credential_rejected"
   | "permission_denied"
   | "request_rejected"
@@ -58,6 +60,11 @@ export interface PostTenantAiChatCompletionArgs {
 export function classifyChatCompletionsHttpStatus(
   status: number,
 ): TenantAiChatCompletionFailureCategory {
+  // Redirects are refused rather than followed (see `redirect: "manual"`
+  // below), so a 3xx reaches this classifier as a failure. It is reported as
+  // `endpoint_blocked`, not as a generic upstream error: the provider tried to
+  // re-aim a credentialed request at an address this transport never vetted.
+  if (status >= 300 && status < 400) return "endpoint_blocked";
   if (status === 401) return "credential_rejected";
   if (status === 403) return "permission_denied";
   if (status === 404) return "endpoint_not_found";
@@ -114,16 +121,31 @@ export async function postTenantAiChatCompletion(
   const reqId = args.requestId ?? "-";
   const doFetch = args.fetchImpl ?? fetch;
 
-  const url = `${runtime.baseUrl}/chat/completions`;
+  // `runtime.baseUrl` derives from Tenant Admin-controlled integration
+  // metadata (the Azure OpenAI `endpoint`), so it is untrusted input to this
+  // request. Vet it here, at the point of use, rather than inheriting a
+  // caller's invariant: this POST carries the tenant's provider API key.
+  const urlCheck = checkOutboundUrl(`${runtime.baseUrl}/chat/completions`);
+  if (!urlCheck.ok) {
+    console.error(
+      `[tenant-ai-chat] endpoint_blocked op=${operation} provider=${runtime.provider} req=${reqId} reason=${urlCheck.reason}`,
+    );
+    return { ok: false, httpStatus: null, category: "endpoint_blocked" };
+  }
+  const url = urlCheck.url.toString();
   const body = { ...payload, model: runtime.providerModel };
   const headers = buildAuthHeaders(runtime);
 
   let response: Response;
   try {
+    // `redirect: "manual"` is what makes the check above hold. Without it a
+    // permitted public host answering `302 Location: http://169.254.169.254/`
+    // would walk the credentialed request straight past the guard.
     response = await doFetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
+      redirect: "manual",
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {

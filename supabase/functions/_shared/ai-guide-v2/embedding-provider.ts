@@ -19,6 +19,7 @@
 // surfaced.
 
 import type { GuideEmbeddingProviderRuntimeConfig } from "../guideEmbeddingProviderRuntime.ts";
+import { checkOutboundUrl } from "../outboundRequestGuard.ts";
 
 export type GuideV2EmbeddingProvider = "openai" | "azure_openai";
 
@@ -81,7 +82,22 @@ export async function embedGuideV2Texts(
     return fail(provider, canonicalModel, 1536, "batch_too_large", "max 128 texts per call");
   }
 
-  const url = `${runtime.baseUrl}/embeddings`;
+  // `runtime.baseUrl` derives from Tenant Admin-controlled integration
+  // metadata (the Azure OpenAI `endpoint`), so it is untrusted input to this
+  // request, which carries the tenant's provider API key. Vet it before the
+  // POST; the rejection reason is never surfaced to the browser.
+  const urlCheck = checkOutboundUrl(`${runtime.baseUrl}/embeddings`);
+  if (!urlCheck.ok) {
+    console.warn("guide-v2.embed.endpoint_blocked", {
+      request_id: input.requestId,
+      provider,
+      canonical_model: canonicalModel,
+      error_code: "endpoint_blocked",
+      reason: urlCheck.reason,
+    });
+    return fail(provider, canonicalModel, 1536, "endpoint_blocked", "embedding provider endpoint is not permitted");
+  }
+  const url = urlCheck.url.toString();
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (runtime.authMode === "bearer") {
     headers["authorization"] = `Bearer ${runtime.apiKey}`;
@@ -97,7 +113,15 @@ export async function embedGuideV2Texts(
   const t0 = Date.now();
   let resp: Response;
   try {
-    resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+    // `redirect: "manual"` is what makes the check above hold. Without it a
+    // permitted public host answering `302 Location: http://169.254.169.254/`
+    // would walk the credentialed request straight past the guard.
+    resp = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      redirect: "manual",
+    });
   } catch {
     console.warn("guide-v2.embed.network_error", {
       request_id: input.requestId,
@@ -110,7 +134,9 @@ export async function embedGuideV2Texts(
   }
 
   if (!resp.ok) {
-    const code = resp.status === 401 || resp.status === 403
+    const code = resp.status >= 300 && resp.status < 400
+      ? "endpoint_blocked" // redirect refused, not followed
+      : resp.status === 401 || resp.status === 403
       ? "auth_failed"
       : resp.status === 429
         ? "rate_limited"

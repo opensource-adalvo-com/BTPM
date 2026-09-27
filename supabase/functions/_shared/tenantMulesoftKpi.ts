@@ -26,6 +26,7 @@ import {
   resolveTenantIntegrationSecretValue,
   TenantIntegrationSecretError,
 } from "./tenantIntegrationSecrets.ts";
+import { checkOutboundUrl } from "./outboundRequestGuard.ts";
 
 export type MulesoftKpiAction = "real_integration" | "external_api_write";
 
@@ -66,7 +67,9 @@ export const MULESOFT_KPI_PUBLIC_MESSAGES: Record<
     "The MuleSoft KPI Tenant integration is not configured.",
   integration_disabled:
     "The MuleSoft KPI Tenant integration is disabled or incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_missing: "The MuleSoft KPI Tenant integration is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_blocked:
     "The MuleSoft KPI Tenant integration is disabled for this Organization.",
   api_url_invalid: "The MuleSoft KPI Tenant integration API URL is invalid.",
@@ -159,23 +162,21 @@ function serviceClient() {
   );
 }
 
+/**
+ * Validate the tenant-configured API URL before it can become the target of a
+ * server-side request.
+ *
+ * `api_url` is Tenant Admin-controlled, so it is untrusted input to every
+ * Edge Function that fetches it. Beyond scheme and embedded credentials, the
+ * shared outbound guard rejects loopback, link-local (cloud instance
+ * metadata), private, CGNAT, reserved and internal-only hosts — without it
+ * this value is an SSRF pivot into infrastructure the caller cannot otherwise
+ * reach. Callers must additionally refuse redirects; see
+ * `outboundRequestGuard.ts`.
+ */
 function validateApiUrl(rawUrl: string): string {
-  let u: URL;
-  try {
-    u = new URL(rawUrl);
-  } catch {
-    throw new TenantMulesoftKpiError(
-      "api_url_invalid",
-      "The MuleSoft KPI Tenant integration API URL is invalid.",
-    );
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") {
-    throw new TenantMulesoftKpiError(
-      "api_url_invalid",
-      "The MuleSoft KPI Tenant integration API URL is invalid.",
-    );
-  }
-  if (u.username !== "" || u.password !== "") {
+  const check = checkOutboundUrl(rawUrl);
+  if (!check.ok) {
     throw new TenantMulesoftKpiError(
       "api_url_invalid",
       "The MuleSoft KPI Tenant integration API URL is invalid.",

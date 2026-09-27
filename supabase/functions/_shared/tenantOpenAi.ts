@@ -61,8 +61,10 @@ const OPENAI_INTERNAL_MESSAGES: Record<OpenAiResolveErrorCode, string> = {
     "The OpenAI Tenant integration is not configured or is incomplete.",
   integration_disabled:
     "The OpenAI Tenant integration is not configured or is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_missing:
     "The OpenAI Tenant integration is not configured or is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_blocked:
     "OpenAI access is not allowed for this Organization or environment.",
   configuration_unavailable:

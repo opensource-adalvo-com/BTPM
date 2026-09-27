@@ -49,8 +49,10 @@ const INTERNAL_MESSAGES: Record<SharePointResolveErrorCode, string> = {
     "The SharePoint Tenant integration is not configured or is incomplete.",
   integration_disabled:
     "The SharePoint Tenant integration is not configured or is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_missing:
     "The SharePoint Tenant integration is not configured or is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_blocked:
     "SharePoint access is not allowed for this Organization or environment.",
   site_url_invalid:

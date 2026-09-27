@@ -44,8 +44,10 @@ const INTERNAL_MESSAGES: Record<MicrosoftGraphResolveErrorCode, string> = {
     "The Microsoft Graph Tenant integration is not configured or is incomplete.",
   integration_disabled:
     "The Microsoft Graph Tenant integration is not configured or is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_missing:
     "The Microsoft Graph Tenant integration is not configured or is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_blocked:
     "Microsoft Graph access is not allowed for this Organization or environment.",
   identifier_invalid:

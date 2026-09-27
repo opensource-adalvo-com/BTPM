@@ -78,6 +78,7 @@ const PROVIDER_ISSUE_LABELS: Record<string, string> = {
   integration_missing: "Integration not provisioned",
   integration_disabled: "Not enabled",
   integration_not_active: "Not active",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   missing_required_secrets: "Missing required secrets",
   missing_required_configuration: "Missing required configuration",
   connection_test_not_passed: "Connection test not passed",

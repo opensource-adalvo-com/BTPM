@@ -64,8 +64,10 @@ const AZURE_INTERNAL_MESSAGES: Record<AzureOpenAiResolveErrorCode, string> = {
     "The Azure OpenAI Tenant integration is not configured or is incomplete.",
   endpoint_invalid:
     "The Azure OpenAI Tenant integration is not configured or is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_missing:
     "The Azure OpenAI Tenant integration is not configured or is incomplete.",
+  // deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
   secret_blocked:
     "Azure OpenAI access is not allowed for this Organization or environment.",
   configuration_unavailable:

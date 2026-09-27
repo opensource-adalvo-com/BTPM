@@ -20,6 +20,10 @@ import {
   type AuthorityCheckDeps,
   evaluateAuthority,
 } from "../_shared/adminAuthority.ts";
+import {
+  guardedFetch,
+  OutboundRequestError,
+} from "../_shared/outboundRequestGuard.ts";
 
 
 
@@ -199,13 +203,29 @@ Deno.serve(async (req) => {
     const basic = btoa(`${cfg.username}:${cfg.password}`);
 
 
+    // `url` derives from the Tenant Admin-controlled `api_url` secret, so it is
+    // untrusted: `guardedFetch` re-checks the composed target against the
+    // outbound guard and refuses to follow redirects, so a permitted public
+    // host cannot bounce this request onto instance metadata or a loopback
+    // service with the Basic credentials attached.
     let upstream: Response;
     try {
-      upstream = await fetch(url, {
+      upstream = await guardedFetch(url, {
         method: "GET",
         headers: { Authorization: `Basic ${basic}`, Accept: "application/json" },
       });
-    } catch {
+    } catch (fetchError) {
+      if (
+        fetchError instanceof OutboundRequestError &&
+        fetchError.reason !== "timeout"
+      ) {
+        return respond({
+          ok: false,
+          request_id: requestId,
+          code: "MULESOFT_KPI_API_URL_INVALID",
+          error: "MuleSoft KPI Tenant integration API URL is invalid.",
+        });
+      }
       return respond({
         ok: false,
         request_id: requestId,
